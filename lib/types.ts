@@ -91,7 +91,7 @@ export interface ProcessedCompany {
 
   // Descriptions
   originalDescription: string;
-  aiSummary: string; // AI-generated 120-150 char summary
+  aiSummary: string; // AI-generated 200-250 char summary (enhanced)
   specialties: string;
 
   // Financials
@@ -110,6 +110,10 @@ export interface ProcessedCompany {
   executiveLastName: string;
   executiveName: string; // "First Last"
   executiveFormatted: string; // "First Last\nTitle" (with line break)
+
+  // Branding (NEW)
+  logo?: string; // base64 encoded image data URL
+  logoSource?: 'clearbit' | 'favicon' | 'initials' | 'none';
 
   // Additional data
   industries: string;

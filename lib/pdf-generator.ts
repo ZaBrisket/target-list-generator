@@ -2,15 +2,27 @@
  * PDF Generator using jsPDF and jsPDF-AutoTable
  *
  * Creates professional PDF export of Target List (Tab 2 only)
- * - Title page with report info
- * - Data table with auto page breaks
- * - Repeated headers on each page
- * - Page numbering
+ * - Professional styling with company logos
+ * - Times-Roman font family
+ * - Dark blue header (#1e3a5f) with white text
+ * - Alternating row colors (#ffffff and #f8f9fa)
+ * - Proper spacing (10px vertical, 12px horizontal)
+ * - Footer with date and page numbers
+ * - Auto page breaks with repeated headers
  */
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PDFExportData, ProcessedCompany } from './types';
+
+// Professional color scheme
+const COLORS = {
+  headerBg: [30, 58, 95] as [number, number, number], // #1e3a5f
+  headerText: [255, 255, 255] as [number, number, number], // White
+  rowEven: [255, 255, 255] as [number, number, number], // #ffffff
+  rowOdd: [248, 249, 250] as [number, number, number], // #f8f9fa
+  text: [0, 0, 0] as [number, number, number], // Black
+};
 
 /**
  * Generate PDF export
@@ -33,9 +45,6 @@ export async function generatePDF(data: PDFExportData): Promise<Buffer> {
     addMinimalTable(doc, data.processedData);
   }
 
-  // Add page numbers to all pages except title
-  addPageNumbers(doc);
-
   // Convert to buffer
   const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
   return pdfBuffer;
@@ -55,19 +64,19 @@ function addTitlePage(
 
   // Title
   doc.setFontSize(24);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont('times', 'bold');
   doc.text(reportTitle, pageWidth / 2, 60, { align: 'center' });
 
   // Company name (if provided)
   if (companyName) {
     doc.setFontSize(16);
-    doc.setFont('helvetica', 'normal');
+    doc.setFont('times', 'normal');
     doc.text(companyName, pageWidth / 2, 75, { align: 'center' });
   }
 
   // Subtitle
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('times', 'normal');
   doc.text(
     'Acquisition Target Universe (Sorted by Est. Revenue)',
     pageWidth / 2,
@@ -86,7 +95,7 @@ function addTitlePage(
 
   // Revenue note
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'italic');
+  doc.setFont('times', 'italic');
   doc.text(
     '($ in millions)',
     pageWidth / 2,
@@ -96,7 +105,7 @@ function addTitlePage(
 
   // Generated date
   doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont('times', 'normal');
   const today = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -117,19 +126,24 @@ function addTitlePage(
  * Add detailed format table
  */
 function addDetailedTable(doc: jsPDF, companies: ProcessedCompany[]) {
-  // Prepare table data
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Prepare table data with logo placeholders
   const tableData = companies.map((company, index) => [
+    '', // Logo placeholder (will be drawn separately)
     index + 1, // #
     company.companyName,
     company.cityState,
     company.aiSummary,
     company.employeeCount,
     company.estRevMillions.toFixed(2),
-    company.executiveFormatted.replace('\n', ' - '), // Replace line break with dash for PDF
+    company.executiveFormatted.replace('\n', '\n'), // Keep line breaks
   ]);
 
   // Table headers
   const headers = [
+    '', // Logo column
     '#',
     'Company',
     'Location',
@@ -144,33 +158,79 @@ function addDetailedTable(doc: jsPDF, companies: ProcessedCompany[]) {
     head: [headers],
     body: tableData,
     startY: 20,
-    theme: 'grid',
+    theme: 'plain',
     styles: {
-      fontSize: 8,
-      cellPadding: 2,
+      font: 'times',
+      fontSize: 9,
+      cellPadding: { top: 3.5, right: 4.2, bottom: 3.5, left: 4.2 }, // 10px vertical, 12px horizontal (approx)
       overflow: 'linebreak',
-      valign: 'top',
+      valign: 'middle',
+      textColor: COLORS.text,
+      lineColor: [200, 200, 200],
+      lineWidth: 0.1,
     },
     headStyles: {
-      fillColor: [68, 114, 196], // Blue header
-      textColor: 255,
+      fillColor: COLORS.headerBg,
+      textColor: COLORS.headerText,
       fontStyle: 'bold',
       halign: 'center',
+      fontSize: 11,
+      cellPadding: { top: 3.5, right: 4.2, bottom: 3.5, left: 4.2 },
+    },
+    alternateRowStyles: {
+      fillColor: COLORS.rowOdd,
     },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' }, // #
-      1: { cellWidth: 50 }, // Company
-      2: { cellWidth: 35 }, // Location
-      3: { cellWidth: 75 }, // Description
-      4: { cellWidth: 20, halign: 'right' }, // Employees
-      5: { cellWidth: 20, halign: 'right' }, // Revenue
-      6: { cellWidth: 40 }, // Executive
+      0: { cellWidth: 12, halign: 'center' }, // Logo
+      1: { cellWidth: 8, halign: 'center' }, // #
+      2: { cellWidth: 45 }, // Company
+      3: { cellWidth: 30 }, // Location
+      4: { cellWidth: 80 }, // Description (wider for 200-250 chars)
+      5: { cellWidth: 18, halign: 'right' }, // Employees
+      6: { cellWidth: 18, halign: 'right' }, // Revenue
+      7: { cellWidth: 38 }, // Executive
+    },
+    didDrawCell: (data) => {
+      // Draw logos in first column (skip header row)
+      if (data.column.index === 0 && data.row.index >= 0) {
+        const company = companies[data.row.index];
+        if (company.logo) {
+          try {
+            const cellX = data.cell.x;
+            const cellY = data.cell.y;
+            const cellWidth = data.cell.width;
+            const cellHeight = data.cell.height;
+
+            // Center logo in cell (8x8mm square)
+            const logoSize = 8;
+            const logoX = cellX + (cellWidth - logoSize) / 2;
+            const logoY = cellY + (cellHeight - logoSize) / 2;
+
+            doc.addImage(company.logo, 'PNG', logoX, logoY, logoSize, logoSize);
+          } catch (error) {
+            // Skip logo if image fails to load
+            console.warn(`Failed to add logo for ${company.companyName}:`, error);
+          }
+        }
+      }
     },
     didDrawPage: (data) => {
-      // Header on each page
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Target List', 14, 15);
+      // Add footer with date and page number
+      const today = new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      // Date on left
+      doc.setFontSize(9);
+      doc.setFont('times', 'normal');
+      doc.text(today, 14, pageHeight - 10);
+
+      // Page number on right
+      const pageNum = doc.getCurrentPageInfo().pageNumber - 1; // Subtract title page
+      const totalPages = doc.getNumberOfPages() - 1;
+      doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
     },
   });
 }
@@ -179,8 +239,12 @@ function addDetailedTable(doc: jsPDF, companies: ProcessedCompany[]) {
  * Add minimal format table
  */
 function addMinimalTable(doc: jsPDF, companies: ProcessedCompany[]) {
-  // Prepare table data
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Prepare table data with logo placeholders
   const tableData = companies.map((company, index) => [
+    '', // Logo placeholder
     index + 1, // #
     company.companyName,
     company.cityState,
@@ -189,11 +253,12 @@ function addMinimalTable(doc: jsPDF, companies: ProcessedCompany[]) {
     company.growthRate9Mo || '-',
     company.growthRate24Mo || '-',
     company.estRevMillions.toFixed(2),
-    company.executiveFormatted.replace('\n', ' - '),
+    company.executiveFormatted.replace('\n', '\n'), // Keep line breaks
   ]);
 
   // Table headers
   const headers = [
+    '', // Logo column
     '#',
     'Company',
     'Location',
@@ -210,57 +275,81 @@ function addMinimalTable(doc: jsPDF, companies: ProcessedCompany[]) {
     head: [headers],
     body: tableData,
     startY: 20,
-    theme: 'grid',
+    theme: 'plain',
     styles: {
-      fontSize: 7,
-      cellPadding: 1.5,
+      font: 'times',
+      fontSize: 8,
+      cellPadding: { top: 3.5, right: 4.2, bottom: 3.5, left: 4.2 },
       overflow: 'linebreak',
-      valign: 'top',
+      valign: 'middle',
+      textColor: COLORS.text,
+      lineColor: [200, 200, 200],
+      lineWidth: 0.1,
     },
     headStyles: {
-      fillColor: [68, 114, 196],
-      textColor: 255,
+      fillColor: COLORS.headerBg,
+      textColor: COLORS.headerText,
       fontStyle: 'bold',
       halign: 'center',
-      fontSize: 8,
+      fontSize: 10,
+      cellPadding: { top: 3.5, right: 4.2, bottom: 3.5, left: 4.2 },
+    },
+    alternateRowStyles: {
+      fillColor: COLORS.rowOdd,
     },
     columnStyles: {
-      0: { cellWidth: 8, halign: 'center' }, // #
-      1: { cellWidth: 45 }, // Company
-      2: { cellWidth: 30 }, // Location
-      3: { cellWidth: 65 }, // Description
-      4: { cellWidth: 15, halign: 'right' }, // 6mo
-      5: { cellWidth: 15, halign: 'right' }, // 9mo
-      6: { cellWidth: 15, halign: 'right' }, // 24mo
-      7: { cellWidth: 20, halign: 'right' }, // Revenue
-      8: { cellWidth: 35 }, // Executive
+      0: { cellWidth: 10, halign: 'center' }, // Logo
+      1: { cellWidth: 7, halign: 'center' }, // #
+      2: { cellWidth: 40 }, // Company
+      3: { cellWidth: 28 }, // Location
+      4: { cellWidth: 70 }, // Description (wider for 200-250 chars)
+      5: { cellWidth: 14, halign: 'right' }, // 6mo
+      6: { cellWidth: 14, halign: 'right' }, // 9mo
+      7: { cellWidth: 14, halign: 'right' }, // 24mo
+      8: { cellWidth: 18, halign: 'right' }, // Revenue
+      9: { cellWidth: 33 }, // Executive
+    },
+    didDrawCell: (data) => {
+      // Draw logos in first column (skip header row)
+      if (data.column.index === 0 && data.row.index >= 0) {
+        const company = companies[data.row.index];
+        if (company.logo) {
+          try {
+            const cellX = data.cell.x;
+            const cellY = data.cell.y;
+            const cellWidth = data.cell.width;
+            const cellHeight = data.cell.height;
+
+            // Center logo in cell (7x7mm square for minimal format)
+            const logoSize = 7;
+            const logoX = cellX + (cellWidth - logoSize) / 2;
+            const logoY = cellY + (cellHeight - logoSize) / 2;
+
+            doc.addImage(company.logo, 'PNG', logoX, logoY, logoSize, logoSize);
+          } catch (error) {
+            console.warn(`Failed to add logo for ${company.companyName}:`, error);
+          }
+        }
+      }
     },
     didDrawPage: (data) => {
-      // Header on each page
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Target List - Growth Metrics', 14, 15);
+      // Add footer with date and page number
+      const today = new Date().toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      // Date on left
+      doc.setFontSize(9);
+      doc.setFont('times', 'normal');
+      doc.text(today, 14, pageHeight - 10);
+
+      // Page number on right
+      const pageNum = doc.getCurrentPageInfo().pageNumber - 1;
+      const totalPages = doc.getNumberOfPages() - 1;
+      doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
     },
   });
 }
 
-/**
- * Add page numbers to all pages except first (title page)
- */
-function addPageNumbers(doc: jsPDF) {
-  const totalPages = doc.getNumberOfPages();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-
-  for (let i = 2; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(
-      `Page ${i - 1} of ${totalPages - 1}`,
-      pageWidth / 2,
-      pageHeight - 10,
-      { align: 'center' }
-    );
-  }
-}

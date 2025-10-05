@@ -96,22 +96,23 @@ function createDetailedFormatTab(
   const headerRow = worksheet.getRow(6);
   headerRow.values = [
     '', '', '', // A, B, C (margin columns)
-    '#', // D
-    'Company', // E
-    'City', // F
-    'State', // G
-    'City, State', // H
-    'Website', // I
-    'Domain', // J
-    'Description', // K
-    'Count', // L (Employee Count)
-    'Est. Rev', // M
-    'Executive Title', // N
-    'Executive Name', // O
-    'Executive First Name', // P
-    'Executive Last Name', // Q
-    'Executive', // R (formatted)
-    'Latest Estimated Revenue ($)', // S (optional)
+    '', // D (Logo)
+    '#', // E
+    'Company', // F
+    'City', // G
+    'State', // H
+    'City, State', // I
+    'Website', // J
+    'Domain', // K
+    'Description', // L
+    'Count', // M (Employee Count)
+    'Est. Rev', // N
+    'Executive Title', // O
+    'Executive Name', // P
+    'Executive First Name', // Q
+    'Executive Last Name', // R
+    'Executive', // S (formatted)
+    'Latest Estimated Revenue ($)', // T (optional)
   ];
 
   // Style header row
@@ -126,52 +127,82 @@ function createDetailedFormatTab(
 
   // Data rows (row 7+)
   companies.forEach((company, index) => {
+    const rowIndex = 7 + index;
     const row = worksheet.addRow([
       '', '', '', // A, B, C (margin)
-      index + 1, // D: Sequential number
-      company.companyName, // E
-      company.city, // F
-      company.state, // G
-      company.cityState, // H
-      company.website, // I
-      company.domain, // J
-      company.aiSummary, // K
-      company.employeeCount, // L
-      company.estRevMillions, // M
-      company.executiveTitle, // N
-      company.executiveName, // O
-      company.executiveFirstName, // P
-      company.executiveLastName, // Q
-      company.executiveFormatted, // R
-      company.latestEstimatedRevenue, // S
+      '', // D: Logo placeholder
+      index + 1, // E: Sequential number
+      company.companyName, // F
+      company.city, // G
+      company.state, // H
+      company.cityState, // I
+      company.website, // J
+      company.domain, // K
+      company.aiSummary, // L
+      company.employeeCount, // M
+      company.estRevMillions, // N
+      company.executiveTitle, // O
+      company.executiveName, // P
+      company.executiveFirstName, // Q
+      company.executiveLastName, // R
+      company.executiveFormatted, // S
+      company.latestEstimatedRevenue, // T
     ]);
 
+    // Add logo image if available
+    if (company.logo) {
+      try {
+        // Extract base64 data
+        const base64Data = company.logo.replace(/^data:image\/\w+;base64,/, '');
+
+        // Add image to workbook
+        const imageId = workbook.addImage({
+          base64: base64Data,
+          extension: 'png',
+        });
+
+        // Insert image in logo column (column D)
+        // Image positioned at row center, 40x40 pixels
+        worksheet.addImage(imageId, {
+          tl: { col: 3, row: rowIndex - 1 }, // Top-left (0-indexed)
+          ext: { width: 40, height: 40 },
+          editAs: 'oneCell',
+        });
+
+        // Set row height to accommodate logo
+        row.height = 32;
+      } catch (error) {
+        console.warn(`Failed to add logo for ${company.companyName}:`, error);
+      }
+    }
+
     // Enable text wrapping for executive column (has line break)
-    const execCell = row.getCell(18); // Column R
+    const execCell = row.getCell(19); // Column S
     execCell.alignment = { wrapText: true, vertical: 'top' };
 
     // Format revenue column (6 decimal places)
-    const revCell = row.getCell(13); // Column M
+    const revCell = row.getCell(14); // Column N
     revCell.numFmt = '0.000000';
   });
 
   // Set column widths
-  worksheet.getColumn('D').width = 5; // #
-  worksheet.getColumn('E').width = 30; // Company
-  worksheet.getColumn('F').width = 15; // City
-  worksheet.getColumn('G').width = 6; // State
-  worksheet.getColumn('H').width = 20; // City, State
-  worksheet.getColumn('I').width = 25; // Website
-  worksheet.getColumn('J').width = 20; // Domain
-  worksheet.getColumn('K').width = 50; // Description
-  worksheet.getColumn('L').width = 8; // Count
-  worksheet.getColumn('M').width = 12; // Est. Rev
-  worksheet.getColumn('N').width = 20; // Executive Title
-  worksheet.getColumn('O').width = 20; // Executive Name
-  worksheet.getColumn('P').width = 15; // First Name
-  worksheet.getColumn('Q').width = 15; // Last Name
-  worksheet.getColumn('R').width = 25; // Executive formatted
-  worksheet.getColumn('S').width = 15; // Revenue $
+  worksheet.getColumn('D').width = 7; // Logo
+  worksheet.getColumn('E').width = 5; // #
+  worksheet.getColumn('F').width = 30; // Company
+  worksheet.getColumn('G').width = 15; // City
+  worksheet.getColumn('H').width = 6; // State
+  worksheet.getColumn('I').width = 20; // City, State
+  worksheet.getColumn('J').width = 25; // Website
+  worksheet.getColumn('K').width = 20; // Domain
+  worksheet.getColumn('L').width = 60; // Description (wider for 200-250 chars)
+  worksheet.getColumn('M').width = 8; // Count
+  worksheet.getColumn('N').width = 12; // Est. Rev
+  worksheet.getColumn('O').width = 20; // Executive Title
+  worksheet.getColumn('P').width = 20; // Executive Name
+  worksheet.getColumn('Q').width = 15; // First Name
+  worksheet.getColumn('R').width = 15; // Last Name
+  worksheet.getColumn('S').width = 25; // Executive formatted
+  worksheet.getColumn('T').width = 15; // Revenue $
 
   // Page setup for printing
   worksheet.pageSetup = {
@@ -208,19 +239,20 @@ function createMinimalFormatTab(
   createTitleBlock(worksheet, config.reportTitle, config.companyName);
 
   // Column headers (row 6)
-  // Columns positioned at D, F, L, T, AA, AB, AD, AH, AR per spec
+  // Columns positioned at D (logo), E (#), G (Company), M (City,State), U (Description), AB, AC, AE, AI, AS per spec
   const headerRow = worksheet.getRow(6);
 
   // Set specific column values
-  headerRow.getCell('D').value = '#';
-  headerRow.getCell('F').value = 'Company';
-  headerRow.getCell('L').value = 'City, State';
-  headerRow.getCell('T').value = 'Description';
-  headerRow.getCell('AA').value = '6 Months Growth Rate %';
-  headerRow.getCell('AB').value = '9 Months Growth Rate %';
-  headerRow.getCell('AD').value = '24 Months Growth Rate %';
-  headerRow.getCell('AH').value = 'Est. Rev';
-  headerRow.getCell('AR').value = 'Executive';
+  headerRow.getCell('D').value = ''; // Logo
+  headerRow.getCell('E').value = '#';
+  headerRow.getCell('G').value = 'Company';
+  headerRow.getCell('M').value = 'City, State';
+  headerRow.getCell('U').value = 'Description';
+  headerRow.getCell('AB').value = '6 Months Growth Rate %';
+  headerRow.getCell('AC').value = '9 Months Growth Rate %';
+  headerRow.getCell('AE').value = '24 Months Growth Rate %';
+  headerRow.getCell('AI').value = 'Est. Rev';
+  headerRow.getCell('AS').value = 'Executive';
 
   // Style header row
   headerRow.font = { bold: true, size: 11 };
@@ -234,39 +266,65 @@ function createMinimalFormatTab(
 
   // Data rows (row 7+)
   companies.forEach((company, index) => {
-    const row = worksheet.getRow(7 + index);
+    const rowIndex = 7 + index;
+    const row = worksheet.getRow(rowIndex);
 
-    row.getCell('D').value = index + 1; // #
-    row.getCell('F').value = company.companyName;
-    row.getCell('L').value = company.cityState;
-    row.getCell('T').value = company.aiSummary;
-    row.getCell('AA').value = company.growthRate6Mo || '';
-    row.getCell('AB').value = company.growthRate9Mo || '';
-    row.getCell('AD').value = company.growthRate24Mo || '';
-    row.getCell('AH').value = company.estRevMillions;
-    row.getCell('AR').value = company.executiveFormatted;
+    // D: Logo (placeholder)
+    row.getCell('E').value = index + 1; // #
+    row.getCell('G').value = company.companyName;
+    row.getCell('M').value = company.cityState;
+    row.getCell('U').value = company.aiSummary;
+    row.getCell('AB').value = company.growthRate6Mo || '';
+    row.getCell('AC').value = company.growthRate9Mo || '';
+    row.getCell('AE').value = company.growthRate24Mo || '';
+    row.getCell('AI').value = company.estRevMillions;
+    row.getCell('AS').value = company.executiveFormatted;
+
+    // Add logo image if available
+    if (company.logo) {
+      try {
+        const base64Data = company.logo.replace(/^data:image\/\w+;base64,/, '');
+
+        const imageId = workbook.addImage({
+          base64: base64Data,
+          extension: 'png',
+        });
+
+        // Insert image in logo column (column D, 0-indexed = col 3)
+        worksheet.addImage(imageId, {
+          tl: { col: 3, row: rowIndex - 1 },
+          ext: { width: 35, height: 35 },
+          editAs: 'oneCell',
+        });
+
+        row.height = 30;
+      } catch (error) {
+        console.warn(`Failed to add logo for ${company.companyName}:`, error);
+      }
+    }
 
     // Enable text wrapping for executive column
-    const execCell = row.getCell('AR');
+    const execCell = row.getCell('AS');
     execCell.alignment = { wrapText: true, vertical: 'top' };
 
     // Format revenue column
-    const revCell = row.getCell('AH');
+    const revCell = row.getCell('AI');
     revCell.numFmt = '0.000000';
 
     row.commit();
   });
 
   // Set column widths
-  worksheet.getColumn('D').width = 5; // #
-  worksheet.getColumn('F').width = 30; // Company
-  worksheet.getColumn('L').width = 20; // City, State
-  worksheet.getColumn('T').width = 50; // Description
-  worksheet.getColumn('AA').width = 12; // 6mo growth
-  worksheet.getColumn('AB').width = 12; // 9mo growth
-  worksheet.getColumn('AD').width = 12; // 24mo growth
-  worksheet.getColumn('AH').width = 12; // Est. Rev
-  worksheet.getColumn('AR').width = 25; // Executive
+  worksheet.getColumn('D').width = 7; // Logo
+  worksheet.getColumn('E').width = 5; // #
+  worksheet.getColumn('G').width = 30; // Company
+  worksheet.getColumn('M').width = 20; // City, State
+  worksheet.getColumn('U').width = 60; // Description (wider for 200-250 chars)
+  worksheet.getColumn('AB').width = 12; // 6mo growth
+  worksheet.getColumn('AC').width = 12; // 9mo growth
+  worksheet.getColumn('AE').width = 12; // 24mo growth
+  worksheet.getColumn('AI').width = 12; // Est. Rev
+  worksheet.getColumn('AS').width = 25; // Executive
 
   // Page setup for printing
   worksheet.pageSetup = {

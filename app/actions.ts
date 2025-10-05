@@ -9,6 +9,7 @@ import { parseUploadedFile } from '@/lib/csv-parser';
 import { processCompanies } from '@/lib/claude';
 import { generateExcel } from '@/lib/excel-generator';
 import { generatePDF } from '@/lib/pdf-generator';
+import { batchFetchLogos } from '@/lib/logo-fetcher';
 import {
   OutputConfig,
   ProcessedCompany,
@@ -80,7 +81,7 @@ export async function parseFile(formData: FormData): Promise<ProcessFileResult> 
 }
 
 /**
- * Process companies with AI
+ * Process companies with AI and fetch logos
  * Note: This is a long-running operation (6-8 minutes for 200 companies)
  */
 export async function processCompaniesAction(
@@ -89,8 +90,32 @@ export async function processCompaniesAction(
   try {
     const sourceData: SourcescubRawRow[] = JSON.parse(sourceDataJson);
 
-    // Process companies with AI
+    // Process companies with AI (generates summaries)
     const processedCompanies = await processCompanies(sourceData);
+
+    // Fetch logos in parallel (5 concurrent requests max)
+    console.log('Fetching company logos...');
+    const logoData = processedCompanies.map(company => ({
+      domain: company.domain,
+      companyName: company.companyName,
+    }));
+
+    const logoResults = await batchFetchLogos(logoData, 5, (current, total) => {
+      console.log(`Fetched logo ${current}/${total}`);
+    });
+
+    // Attach logos to processed companies
+    processedCompanies.forEach(company => {
+      const logoResult = logoResults.get(company.companyName);
+      if (logoResult && logoResult.success) {
+        company.logo = logoResult.data;
+        company.logoSource = logoResult.source;
+      } else {
+        company.logoSource = 'none';
+      }
+    });
+
+    console.log(`Successfully processed ${processedCompanies.length} companies with logos`);
 
     return {
       success: true,

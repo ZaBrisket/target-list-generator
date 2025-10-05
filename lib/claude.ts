@@ -178,9 +178,10 @@ export async function generateCompanySummary(
 
 /**
  * Build initial detailed prompt for summary generation
+ * Enhanced for 200-250 character executive-ready descriptions
  */
 function buildInitialPrompt(data: AIPromptData): string {
-  return `You are creating executive-ready company summaries for M&A target analysis.
+  return `You are creating executive-ready company summaries for M&A target analysis presentations.
 
 COMPANY DATA:
 Name: ${data.companyName}
@@ -194,28 +195,35 @@ FULL DESCRIPTION:
 ${data.fullDescription}
 
 YOUR TASK:
-Create a precise 2-sentence summary (120-150 characters) that captures:
+Create a substantive 200-250 character summary that captures:
 
-1. CORE BUSINESS: What products/services do they sell? What makes them unique?
-2. TARGET MARKET: Which industries/customer segments do they serve?
-3. KEY FACTS: Specific technical capabilities, notable markets, proprietary technology
+1. CORE BUSINESS: What they provide/manufacture/specialize in (use specific terminology from specialties)
+2. KEY DIFFERENTIATORS: What makes them unique (technical capabilities, proprietary methods, certifications)
+3. TARGET MARKETS: Which industries/customer segments they serve (be specific: healthcare, industrial, utilities, etc.)
+4. APPLICATIONS: Key use cases or client types when relevant
 
 QUALITY REQUIREMENTS:
-- Lead with full company name
-- Use specific terminology from specialties
-- Prioritize differentiation over generic capabilities
-- Factual only, no marketing fluff
-- Format: "[Company Name] provides/specializes in [specific offering] for [specific market]."
-- CRITICAL: Must be 120-150 characters (not words, characters!)
-- No generic phrases like "leading provider", "innovative solutions", "cutting-edge"
-- No truncation (no "...", "etc.")
+- Start with full company name (not abbreviated): "${data.companyName}"
+- Use exact terminology from specialties field: ${data.specialties}
+- Be specific and factual - avoid generic marketing language
+- Format: "[Company Name] provides/specializes in/manufactures [specific offering] for [end markets], including [key capabilities/applications]."
+- CRITICAL: Must be 200-250 characters (not words, CHARACTERS!)
+- No generic phrases: "leading provider", "innovative solutions", "cutting-edge", "comprehensive", "full-service"
+- No truncation: no "...", "etc.", "and more"
+- Include specific market segments when mentioned (healthcare facilities, industrial plants, commercial buildings, etc.)
+
+EXAMPLES OF GOOD SUMMARIES:
+- "Control Solutions, Incorporated specializes in commissioning including energy optimization for commercial and healthcare facilities."
+- "Engineered Systems & Energy Solutions, Inc. provides building automation systems including energy optimization for healthcare and educational facilities."
+- "Environmental Test and Balance Co. specializes in commissioning for industrial and utility facilities."
 
 THINK STEP BY STEP:
-1. What is their PRIMARY revenue driver?
-2. Who is their TARGET customer?
-3. What makes them DIFFERENT?
+1. What is their PRIMARY service/product?
+2. What SPECIFIC capabilities differentiate them? (from specialties: ${data.specialties})
+3. Which MARKETS do they serve? (from industries: ${data.industries})
+4. Any KEY applications or notable client types?
 
-Now write the summary (120-150 characters):`;
+Now write the summary (200-250 characters, substantive and specific):`;
 }
 
 /**
@@ -223,8 +231,8 @@ Now write the summary (120-150 characters):`;
  */
 function buildRetryPrompt(data: AIPromptData, retryCount: number): string {
   const emphasis = retryCount === 1
-    ? 'IMPORTANT: Previous attempt failed quality check. Focus on specificity and accuracy.'
-    : 'CRITICAL: Multiple attempts failed. Ensure exact character count (120-150) and include company name.';
+    ? 'IMPORTANT: Previous attempt failed quality check. Focus on specificity, accuracy, and proper length (200-250 characters).'
+    : 'CRITICAL: Multiple attempts failed. Ensure exact character count (200-250 characters), include full company name, and use specific terminology from specialties.';
 
   return `${emphasis}
 

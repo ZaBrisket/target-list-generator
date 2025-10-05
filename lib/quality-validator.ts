@@ -2,7 +2,7 @@
  * Quality Validation for AI-Generated Summaries
  *
  * Validates that AI summaries meet executive-ready quality standards:
- * - Length: 100-180 characters (target 120-150)
+ * - Length: 180-280 characters (target 200-250)
  * - Contains company name
  * - No generic marketing phrases
  * - Industry-specific terminology
@@ -41,19 +41,19 @@ export function validateSummaryQuality(
 ): QualityCheckResult {
   const issues: string[] = [];
 
-  // 1. Length check (100-180 characters, ideal 120-150)
+  // 1. Length check (180-280 characters, ideal 200-250)
   const length = summary.length;
-  const lengthValid = length >= 100 && length <= 180;
+  const lengthValid = length >= 180 && length <= 280;
 
   if (!lengthValid) {
-    if (length < 100) {
-      issues.push(`Too short (${length} chars, need 100-180)`);
+    if (length < 180) {
+      issues.push(`Too short (${length} chars, need 180-280)`);
     } else {
-      issues.push(`Too long (${length} chars, max 180)`);
+      issues.push(`Too long (${length} chars, max 280)`);
     }
-  } else if (length < 120 || length > 150) {
+  } else if (length < 200 || length > 250) {
     // Not an error, but note it's outside ideal range
-    issues.push(`Length acceptable but outside ideal range (${length} chars, ideal 120-150)`);
+    issues.push(`Length acceptable but outside ideal range (${length} chars, ideal 200-250)`);
   }
 
   // 2. Company name check
@@ -192,12 +192,12 @@ export function generateRefinementPrompt(
     problems.push(`- Include specific terminology from their specialties: ${specialties.split(',').slice(0, 3).join(', ')}`);
   }
 
-  if (qualityCheck.length < 100) {
-    problems.push('- Expand to at least 100 characters with more specific details');
+  if (qualityCheck.length < 180) {
+    problems.push('- Expand to at least 180 characters with more specific details');
   }
 
-  if (qualityCheck.length > 180) {
-    problems.push('- Shorten to maximum 180 characters while keeping key details');
+  if (qualityCheck.length > 280) {
+    problems.push('- Shorten to maximum 280 characters while keeping key details');
   }
 
   if (!qualityCheck.isProperlyFormatted) {
@@ -215,7 +215,7 @@ export function generateRefinementPrompt(
 PROBLEMS:
 ${problems.join('\n')}
 
-Please rewrite the summary addressing all the above issues. Keep it factual, specific, and between 120-150 characters.`;
+Please rewrite the summary addressing all the above issues. Keep it factual, specific, and between 200-250 characters.`;
 }
 
 /**
@@ -225,8 +225,8 @@ export function rateSummaryQuality(qualityCheck: QualityCheckResult): 'excellent
   // Excellent: passes all checks, ideal length
   if (
     qualityCheck.passed &&
-    qualityCheck.length >= 120 &&
-    qualityCheck.length <= 150 &&
+    qualityCheck.length >= 200 &&
+    qualityCheck.length <= 250 &&
     qualityCheck.hasCompanyName &&
     !qualityCheck.hasGenericPhrases &&
     qualityCheck.hasIndustryTerms &&
