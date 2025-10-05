@@ -97,7 +97,7 @@ async function parseCSVBuffer(buffer: ArrayBuffer): Promise<any[]> {
           reject(error);
         }
       },
-      error: (error) => {
+      error: (error: any) => {
         reject(new Error(`CSV parsing error: ${error.message}`));
       },
     });
