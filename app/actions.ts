@@ -50,8 +50,11 @@ export async function parseFile(formData: FormData): Promise<ProcessFileResult> 
       };
     }
 
+    // Convert file to array buffer for server-side processing
+    const arrayBuffer = await file.arrayBuffer();
+
     // Parse file
-    const { data, validation } = await parseUploadedFile(file);
+    const { data, validation } = await parseUploadedFile(arrayBuffer, file.name);
 
     if (!validation.isValid) {
       return {

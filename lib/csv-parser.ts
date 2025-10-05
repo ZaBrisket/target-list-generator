@@ -56,11 +56,15 @@ export async function parseUploadedFile(fileBuffer: ArrayBuffer, fileName: strin
 }
 
 /**
- * Parse CSV file with Sourcescrub format handling
+ * Parse CSV buffer with Sourcescrub format handling
  */
-async function parseCSV(file: File): Promise<any[]> {
+async function parseCSVBuffer(buffer: ArrayBuffer): Promise<any[]> {
   return new Promise((resolve, reject) => {
-    Papa.parse(file, {
+    // Convert ArrayBuffer to string
+    const decoder = new TextDecoder('utf-8');
+    const csvText = decoder.decode(buffer);
+
+    Papa.parse(csvText, {
       header: false,
       skipEmptyLines: true,
       complete: (results) => {
@@ -101,57 +105,44 @@ async function parseCSV(file: File): Promise<any[]> {
 }
 
 /**
- * Parse Excel file
+ * Parse Excel buffer
  */
-async function parseExcel(file: File): Promise<any[]> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+async function parseExcelBuffer(buffer: ArrayBuffer): Promise<any[]> {
+  try {
+    // Read workbook from buffer
+    const workbook = XLSX.read(buffer, { type: 'array' });
 
-    reader.onload = (e) => {
-      try {
-        const fileData = e.target?.result;
-        const workbook = XLSX.read(fileData, { type: 'binary' });
+    // Get first sheet
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
 
-        // Get first sheet
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
+    // Convert to array of arrays
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
 
-        // Convert to array of arrays
-        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+    // Sourcescrub format: skip first 2 rows
+    if (rows.length < 4) {
+      throw new Error('File has insufficient rows. Expected at least 4 rows (URL, blank, headers, data).');
+    }
 
-        // Sourcescrub format: skip first 2 rows
-        if (rows.length < 4) {
-          reject(new Error('File has insufficient rows. Expected at least 4 rows (URL, blank, headers, data).'));
-          return;
-        }
+    // Row 3 (index 2) contains headers
+    const headers = rows[2];
 
-        // Row 3 (index 2) contains headers
-        const headers = rows[2];
+    // Rows 4+ (index 3+) contain data
+    const dataRows = rows.slice(3);
 
-        // Rows 4+ (index 3+) contain data
-        const dataRows = rows.slice(3);
+    // Convert to objects
+    const data = dataRows.map(row => {
+      const obj: any = {};
+      headers.forEach((header: string, index: number) => {
+        obj[header] = row[index] !== undefined ? String(row[index]) : '';
+      });
+      return obj;
+    });
 
-        // Convert to objects
-        const data = dataRows.map(row => {
-          const obj: any = {};
-          headers.forEach((header: string, index: number) => {
-            obj[header] = row[index] !== undefined ? String(row[index]) : '';
-          });
-          return obj;
-        });
-
-        resolve(data);
-      } catch (error) {
-        reject(error);
-      }
-    };
-
-    reader.onerror = () => {
-      reject(new Error('Failed to read Excel file'));
-    };
-
-    reader.readAsBinaryString(file);
-  });
+    return data;
+  } catch (error) {
+    throw new Error(`Failed to parse Excel file: ${error}`);
+  }
 }
 
 /**
