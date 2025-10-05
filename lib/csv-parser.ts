@@ -60,47 +60,81 @@ export async function parseUploadedFile(fileBuffer: ArrayBuffer, fileName: strin
  */
 async function parseCSVBuffer(buffer: ArrayBuffer): Promise<any[]> {
   return new Promise((resolve, reject) => {
-    // Convert ArrayBuffer to string
-    const decoder = new TextDecoder('utf-8');
-    const csvText = decoder.decode(buffer);
+    try {
+      // Convert ArrayBuffer to string, handling UTF-8 BOM
+      const decoder = new TextDecoder('utf-8');
+      let csvText = decoder.decode(buffer);
 
-    Papa.parse(csvText, {
-      header: false,
-      skipEmptyLines: true,
-      complete: (results) => {
-        try {
-          const rows = results.data as string[][];
+      // Remove UTF-8 BOM if present (EF BB BF)
+      if (csvText.charCodeAt(0) === 0xFEFF) {
+        csvText = csvText.substring(1);
+      }
 
-          // Sourcescrub format: skip first 2 rows
-          if (rows.length < 4) {
-            reject(new Error('File has insufficient rows. Expected at least 4 rows (URL, blank, headers, data).'));
-            return;
-          }
+      // Parse CSV
+      Papa.parse(csvText, {
+        header: false,
+        skipEmptyLines: 'greedy', // Skip all empty lines including whitespace-only
+        complete: (results) => {
+          try {
+            const rows = results.data as string[][];
 
-          // Row 3 (index 2) contains headers
-          const headers = rows[2];
+            // Filter out completely empty rows and the Search URL row
+            const nonEmptyRows = rows.filter(row => {
+              // Skip if row is empty or all cells are empty
+              if (!row || row.length === 0) return false;
 
-          // Rows 4+ (index 3+) contain data
-          const dataRows = rows.slice(3);
+              // Skip if first cell starts with "Search Url" (metadata row)
+              if (row[0] && row[0].trim().toLowerCase().startsWith('search url')) return false;
 
-          // Convert to objects
-          const data = dataRows.map(row => {
-            const obj: any = {};
-            headers.forEach((header, index) => {
-              obj[header] = row[index] || '';
+              // Skip if all cells are empty
+              const hasContent = row.some(cell => cell && cell.trim().length > 0);
+              return hasContent;
             });
-            return obj;
-          });
 
-          resolve(data);
-        } catch (error) {
-          reject(error);
-        }
-      },
-      error: (error: any) => {
-        reject(new Error(`CSV parsing error: ${error.message}`));
-      },
-    });
+            // Validate we have enough rows
+            if (nonEmptyRows.length < 2) {
+              reject(new Error(`File has insufficient rows. Found ${nonEmptyRows.length} non-empty rows, expected at least 2 (headers + data).`));
+              return;
+            }
+
+            // First non-empty row should be headers
+            const headers = nonEmptyRows[0].map(h => (h || '').trim());
+
+            // Validate headers are present
+            if (headers.length === 0 || headers.every(h => !h)) {
+              reject(new Error('No valid column headers found in CSV file.'));
+              return;
+            }
+
+            // Remaining rows are data
+            const dataRows = nonEmptyRows.slice(1);
+
+            if (dataRows.length === 0) {
+              reject(new Error('No data rows found in CSV file.'));
+              return;
+            }
+
+            // Convert to objects
+            const data = dataRows.map(row => {
+              const obj: any = {};
+              headers.forEach((header, index) => {
+                obj[header] = row[index] !== undefined ? String(row[index]).trim() : '';
+              });
+              return obj;
+            });
+
+            resolve(data);
+          } catch (error: any) {
+            reject(new Error(`Error processing CSV data: ${error.message}`));
+          }
+        },
+        error: (error: any) => {
+          reject(new Error(`CSV parsing error: ${error.message}`));
+        },
+      });
+    } catch (error: any) {
+      reject(new Error(`Failed to decode CSV file: ${error.message}`));
+    }
   });
 }
 
@@ -117,31 +151,53 @@ async function parseExcelBuffer(buffer: ArrayBuffer): Promise<any[]> {
     const worksheet = workbook.Sheets[sheetName];
 
     // Convert to array of arrays
-    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' }) as any[][];
 
-    // Sourcescrub format: skip first 2 rows
-    if (rows.length < 4) {
-      throw new Error('File has insufficient rows. Expected at least 4 rows (URL, blank, headers, data).');
+    // Filter out completely empty rows and the Search URL row
+    const nonEmptyRows = rows.filter(row => {
+      // Skip if row is empty or all cells are empty
+      if (!row || row.length === 0) return false;
+
+      // Skip if first cell starts with "Search Url" (metadata row)
+      if (row[0] && String(row[0]).trim().toLowerCase().startsWith('search url')) return false;
+
+      // Skip if all cells are empty
+      const hasContent = row.some(cell => cell !== undefined && cell !== null && String(cell).trim().length > 0);
+      return hasContent;
+    });
+
+    // Validate we have enough rows
+    if (nonEmptyRows.length < 2) {
+      throw new Error(`File has insufficient rows. Found ${nonEmptyRows.length} non-empty rows, expected at least 2 (headers + data).`);
     }
 
-    // Row 3 (index 2) contains headers
-    const headers = rows[2];
+    // First non-empty row should be headers
+    const headers = nonEmptyRows[0].map((h: any) => String(h || '').trim());
 
-    // Rows 4+ (index 3+) contain data
-    const dataRows = rows.slice(3);
+    // Validate headers are present
+    if (headers.length === 0 || headers.every((h: string) => !h)) {
+      throw new Error('No valid column headers found in Excel file.');
+    }
+
+    // Remaining rows are data
+    const dataRows = nonEmptyRows.slice(1);
+
+    if (dataRows.length === 0) {
+      throw new Error('No data rows found in Excel file.');
+    }
 
     // Convert to objects
     const data = dataRows.map(row => {
       const obj: any = {};
       headers.forEach((header: string, index: number) => {
-        obj[header] = row[index] !== undefined ? String(row[index]) : '';
+        obj[header] = row[index] !== undefined && row[index] !== null ? String(row[index]).trim() : '';
       });
       return obj;
     });
 
     return data;
-  } catch (error) {
-    throw new Error(`Failed to parse Excel file: ${error}`);
+  } catch (error: any) {
+    throw new Error(`Failed to parse Excel file: ${error.message || error}`);
   }
 }
 
