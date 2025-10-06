@@ -137,8 +137,8 @@ function addDetailedTable(doc: jsPDF, companies: ProcessedCompany[]) {
     company.cityState,
     company.aiSummary,
     company.employeeCount,
-    company.estRevMillions.toFixed(2),
-    company.executiveFormatted.replace('\n', '\n'), // Keep line breaks
+    company.estRevMillions.toFixed(1), // Single decimal place
+    formatExecutiveSingleLine(company.executiveFirstName, company.executiveLastName, company.executiveTitle),
   ]);
 
   // Table headers
@@ -183,12 +183,12 @@ function addDetailedTable(doc: jsPDF, companies: ProcessedCompany[]) {
     columnStyles: {
       0: { cellWidth: 12, halign: 'center' }, // Logo
       1: { cellWidth: 8, halign: 'center' }, // #
-      2: { cellWidth: 45 }, // Company
-      3: { cellWidth: 30 }, // Location
-      4: { cellWidth: 80 }, // Description (wider for 200-250 chars)
-      5: { cellWidth: 18, halign: 'right' }, // Employees
-      6: { cellWidth: 18, halign: 'right' }, // Revenue
-      7: { cellWidth: 38 }, // Executive
+      2: { cellWidth: 40 }, // Company
+      3: { cellWidth: 25 }, // Location
+      4: { cellWidth: 95 }, // Description (expanded to prevent mid-word truncation)
+      5: { cellWidth: 15, halign: 'right' }, // Employees
+      6: { cellWidth: 15, halign: 'right' }, // Revenue
+      7: { cellWidth: 35 }, // Executive
     },
     didDrawCell: (data) => {
       // Draw logos in first column (skip header row)
@@ -252,8 +252,8 @@ function addMinimalTable(doc: jsPDF, companies: ProcessedCompany[]) {
     company.growthRate6Mo || '-',
     company.growthRate9Mo || '-',
     company.growthRate24Mo || '-',
-    company.estRevMillions.toFixed(2),
-    company.executiveFormatted.replace('\n', '\n'), // Keep line breaks
+    company.estRevMillions.toFixed(1), // Single decimal place
+    formatExecutiveSingleLine(company.executiveFirstName, company.executiveLastName, company.executiveTitle),
   ]);
 
   // Table headers
@@ -300,14 +300,14 @@ function addMinimalTable(doc: jsPDF, companies: ProcessedCompany[]) {
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' }, // Logo
       1: { cellWidth: 7, halign: 'center' }, // #
-      2: { cellWidth: 40 }, // Company
-      3: { cellWidth: 28 }, // Location
-      4: { cellWidth: 70 }, // Description (wider for 200-250 chars)
-      5: { cellWidth: 14, halign: 'right' }, // 6mo
-      6: { cellWidth: 14, halign: 'right' }, // 9mo
-      7: { cellWidth: 14, halign: 'right' }, // 24mo
-      8: { cellWidth: 18, halign: 'right' }, // Revenue
-      9: { cellWidth: 33 }, // Executive
+      2: { cellWidth: 35 }, // Company
+      3: { cellWidth: 23 }, // Location
+      4: { cellWidth: 85 }, // Description (expanded to prevent mid-word truncation)
+      5: { cellWidth: 12, halign: 'right' }, // 6mo
+      6: { cellWidth: 12, halign: 'right' }, // 9mo
+      7: { cellWidth: 12, halign: 'right' }, // 24mo
+      8: { cellWidth: 15, halign: 'right' }, // Revenue
+      9: { cellWidth: 30 }, // Executive
     },
     didDrawCell: (data) => {
       // Draw logos in first column (skip header row)
@@ -351,5 +351,20 @@ function addMinimalTable(doc: jsPDF, companies: ProcessedCompany[]) {
       doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
     },
   });
+}
+
+
+/**
+ * Format executive name and title as single line
+ * "FirstName LastName, Title" instead of "FirstName LastName\nTitle"
+ */
+function formatExecutiveSingleLine(firstName: string, lastName: string, title: string): string {
+  const name = [firstName, lastName].filter(Boolean).join(" ");
+
+  if (!name && !title) return "";
+  if (!title) return name;
+  if (!name) return title;
+
+  return `${name}, ${title}`;
 }
 

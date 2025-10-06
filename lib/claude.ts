@@ -357,7 +357,15 @@ export async function processCompanies(
     await sleep(500);
   }
 
-  return results;
+  // Filter out companies with zero revenue and sort by revenue descending
+  const filteredResults = results.filter(company => company.estRevMillions > 0);
+
+  filteredResults.sort((a, b) => {
+    // Sort by revenue in descending order (highest first)
+    return b.estRevMillions - a.estRevMillions;
+  });
+
+  return filteredResults;
 }
 
 /**

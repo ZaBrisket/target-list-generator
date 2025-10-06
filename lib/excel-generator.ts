@@ -145,7 +145,7 @@ function createDetailedFormatTab(
       company.executiveName, // P
       company.executiveFirstName, // Q
       company.executiveLastName, // R
-      company.executiveFormatted, // S
+      formatExecutiveSingleLine(company.executiveFirstName, company.executiveLastName, company.executiveTitle), // S - single line format
       company.latestEstimatedRevenue, // T
     ]);
 
@@ -176,13 +176,9 @@ function createDetailedFormatTab(
       }
     }
 
-    // Enable text wrapping for executive column (has line break)
-    const execCell = row.getCell(19); // Column S
-    execCell.alignment = { wrapText: true, vertical: 'top' };
-
-    // Format revenue column (6 decimal places)
+    // Format revenue column (1 decimal place)
     const revCell = row.getCell(14); // Column N
-    revCell.numFmt = '0.000000';
+    revCell.numFmt = '0.0';
   });
 
   // Set column widths
@@ -278,7 +274,7 @@ function createMinimalFormatTab(
     row.getCell('AC').value = company.growthRate9Mo || '';
     row.getCell('AE').value = company.growthRate24Mo || '';
     row.getCell('AI').value = company.estRevMillions;
-    row.getCell('AS').value = company.executiveFormatted;
+    row.getCell('AS').value = formatExecutiveSingleLine(company.executiveFirstName, company.executiveLastName, company.executiveTitle);
 
     // Add logo image if available
     if (company.logo) {
@@ -303,13 +299,9 @@ function createMinimalFormatTab(
       }
     }
 
-    // Enable text wrapping for executive column
-    const execCell = row.getCell('AS');
-    execCell.alignment = { wrapText: true, vertical: 'top' };
-
-    // Format revenue column
+    // Format revenue column (1 decimal place)
     const revCell = row.getCell('AI');
-    revCell.numFmt = '0.000000';
+    revCell.numFmt = '0.0';
 
     row.commit();
   });
@@ -389,3 +381,18 @@ function createTitleBlock(
   row5.getCell('M').value = 'Est. Employee';
   row5.getCell('M').font = { size: 10 };
 }
+
+/**
+ * Format executive name and title as single line
+ * "FirstName LastName, Title" instead of "FirstName LastName\nTitle"
+ */
+function formatExecutiveSingleLine(firstName: string, lastName: string, title: string): string {
+  const name = [firstName, lastName].filter(Boolean).join(" ");
+
+  if (!name && !title) return "";
+  if (!title) return name;
+  if (!name) return title;
+
+  return `${name}, ${title}`;
+}
+
