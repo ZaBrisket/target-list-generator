@@ -45,6 +45,9 @@ export async function generatePDF(data: PDFExportData): Promise<Buffer> {
     addMinimalTable(doc, data.processedData);
   }
 
+  // Fix page numbers with total count (now that all pages are generated)
+  fixPageNumbers(doc);
+
   // Convert to buffer
   const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
   return pdfBuffer;
@@ -162,12 +165,13 @@ function addDetailedTable(doc: jsPDF, companies: ProcessedCompany[]) {
     styles: {
       font: 'times',
       fontSize: 9,
-      cellPadding: { top: 3.5, right: 4.2, bottom: 3.5, left: 4.2 }, // 10px vertical, 12px horizontal (approx)
+      cellPadding: { top: 4, right: 5, bottom: 4, left: 5 }, // Increased padding for better white space
       overflow: 'linebreak',
-      valign: 'middle',
+      valign: 'top', // Changed from 'middle' to 'top' for better text flow
       textColor: COLORS.text,
       lineColor: [200, 200, 200],
       lineWidth: 0.1,
+      halign: 'left', // Default left alignment for text
     },
     headStyles: {
       fillColor: COLORS.headerBg,
@@ -175,21 +179,25 @@ function addDetailedTable(doc: jsPDF, companies: ProcessedCompany[]) {
       fontStyle: 'bold',
       halign: 'center',
       fontSize: 11,
-      cellPadding: { top: 3.5, right: 4.2, bottom: 3.5, left: 4.2 },
+      cellPadding: { top: 4, right: 5, bottom: 4, left: 5 },
+      valign: 'middle',
     },
     alternateRowStyles: {
       fillColor: COLORS.rowOdd,
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: 'center' }, // Logo
-      1: { cellWidth: 8, halign: 'center' }, // #
-      2: { cellWidth: 40 }, // Company
-      3: { cellWidth: 25 }, // Location
-      4: { cellWidth: 95 }, // Description (expanded to prevent mid-word truncation)
-      5: { cellWidth: 15, halign: 'right' }, // Employees
-      6: { cellWidth: 15, halign: 'right' }, // Revenue
-      7: { cellWidth: 35 }, // Executive
+      0: { cellWidth: 12, halign: 'center' }, // Logo (centered)
+      1: { cellWidth: 8, halign: 'center' }, // # (centered)
+      2: { cellWidth: 40, halign: 'left' }, // Company (left)
+      3: { cellWidth: 25, halign: 'left' }, // Location (left)
+      4: { cellWidth: 95, halign: 'left' }, // Description (left)
+      5: { cellWidth: 15, halign: 'right' }, // Employees (right)
+      6: { cellWidth: 15, halign: 'right' }, // Revenue (right)
+      7: { cellWidth: 35, halign: 'left' }, // Executive (left)
     },
+    // Prevent rows from splitting across pages
+    rowPageBreak: 'avoid',
+    margin: { top: 15, right: 12, bottom: 15, left: 12 }, // Increased margins
     didDrawCell: (data) => {
       // Draw logos in first column (skip header row)
       if (data.column.index === 0 && data.row.index >= 0) {
@@ -228,9 +236,13 @@ function addDetailedTable(doc: jsPDF, companies: ProcessedCompany[]) {
       doc.text(today, 14, pageHeight - 10);
 
       // Page number on right
-      const pageNum = doc.getCurrentPageInfo().pageNumber - 1; // Subtract title page
-      const totalPages = doc.getNumberOfPages() - 1;
-      doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+      // Note: This runs for each page as it's drawn, so we calculate after all pages are generated
+      const currentPage = doc.getCurrentPageInfo().pageNumber;
+      if (currentPage > 1) { // Skip title page
+        const pageNum = currentPage - 1; // Subtract title page
+        // We'll update total pages in a final pass
+        doc.text(`Page ${pageNum}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+      }
     },
   });
 }
@@ -279,12 +291,13 @@ function addMinimalTable(doc: jsPDF, companies: ProcessedCompany[]) {
     styles: {
       font: 'times',
       fontSize: 8,
-      cellPadding: { top: 3.5, right: 4.2, bottom: 3.5, left: 4.2 },
+      cellPadding: { top: 4, right: 5, bottom: 4, left: 5 }, // Increased padding
       overflow: 'linebreak',
-      valign: 'middle',
+      valign: 'top', // Changed from 'middle' to 'top'
       textColor: COLORS.text,
       lineColor: [200, 200, 200],
       lineWidth: 0.1,
+      halign: 'left', // Default left alignment
     },
     headStyles: {
       fillColor: COLORS.headerBg,
@@ -292,23 +305,27 @@ function addMinimalTable(doc: jsPDF, companies: ProcessedCompany[]) {
       fontStyle: 'bold',
       halign: 'center',
       fontSize: 10,
-      cellPadding: { top: 3.5, right: 4.2, bottom: 3.5, left: 4.2 },
+      cellPadding: { top: 4, right: 5, bottom: 4, left: 5 },
+      valign: 'middle',
     },
     alternateRowStyles: {
       fillColor: COLORS.rowOdd,
     },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' }, // Logo
-      1: { cellWidth: 7, halign: 'center' }, // #
-      2: { cellWidth: 35 }, // Company
-      3: { cellWidth: 23 }, // Location
-      4: { cellWidth: 85 }, // Description (expanded to prevent mid-word truncation)
-      5: { cellWidth: 12, halign: 'right' }, // 6mo
-      6: { cellWidth: 12, halign: 'right' }, // 9mo
-      7: { cellWidth: 12, halign: 'right' }, // 24mo
-      8: { cellWidth: 15, halign: 'right' }, // Revenue
-      9: { cellWidth: 30 }, // Executive
+      0: { cellWidth: 10, halign: 'center' }, // Logo (centered)
+      1: { cellWidth: 7, halign: 'center' }, // # (centered)
+      2: { cellWidth: 35, halign: 'left' }, // Company (left)
+      3: { cellWidth: 23, halign: 'left' }, // Location (left)
+      4: { cellWidth: 85, halign: 'left' }, // Description (left)
+      5: { cellWidth: 12, halign: 'right' }, // 6mo (right)
+      6: { cellWidth: 12, halign: 'right' }, // 9mo (right)
+      7: { cellWidth: 12, halign: 'right' }, // 24mo (right)
+      8: { cellWidth: 15, halign: 'right' }, // Revenue (right)
+      9: { cellWidth: 30, halign: 'left' }, // Executive (left)
     },
+    // Prevent rows from splitting across pages
+    rowPageBreak: 'avoid',
+    margin: { top: 15, right: 12, bottom: 15, left: 12 }, // Increased margins
     didDrawCell: (data) => {
       // Draw logos in first column (skip header row)
       if (data.column.index === 0 && data.row.index >= 0) {
@@ -345,10 +362,12 @@ function addMinimalTable(doc: jsPDF, companies: ProcessedCompany[]) {
       doc.setFont('times', 'normal');
       doc.text(today, 14, pageHeight - 10);
 
-      // Page number on right
-      const pageNum = doc.getCurrentPageInfo().pageNumber - 1;
-      const totalPages = doc.getNumberOfPages() - 1;
-      doc.text(`Page ${pageNum} of ${totalPages}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+      // Page number on right (will be fixed in final pass)
+      const currentPage = doc.getCurrentPageInfo().pageNumber;
+      if (currentPage > 1) { // Skip title page
+        const pageNum = currentPage - 1;
+        doc.text(`Page ${pageNum}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+      }
     },
   });
 }
@@ -368,3 +387,28 @@ function formatExecutiveSingleLine(firstName: string, lastName: string, title: s
   return `${name}, ${title}`;
 }
 
+
+/**
+ * Fix page numbers with accurate "Page X of Y" format
+ * Must be called after all pages are generated
+ */
+function fixPageNumbers(doc: jsPDF): void {
+  const totalPages = doc.getNumberOfPages();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Update each data page (skip title page)
+  for (let i = 2; i <= totalPages; i++) {
+    doc.setPage(i);
+    
+    // Clear old page number (just the number)
+    // We'll redraw with "of Y" added
+    
+    const pageNum = i - 1; // Subtract title page
+    const totalDataPages = totalPages - 1;
+    
+    doc.setFontSize(9);
+    doc.setFont('times', 'normal');
+    doc.text(`Page ${pageNum} of ${totalDataPages}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
+  }
+}
